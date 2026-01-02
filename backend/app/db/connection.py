@@ -1,5 +1,4 @@
-import app.database.async_pool as async_pool
-
+import app.db.async_pool as async_pool
 
 async def get_connection():
     """
