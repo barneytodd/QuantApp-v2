@@ -1,11 +1,9 @@
-# app/db/async_pool.py
-
 import asyncio
 import pyodbc
 import aioodbc
 import aiosqlite
 
-from core.config import (
+from app.core.config import (
     DB_ENGINE,
     DB_HOST,
     DB_PORT,
@@ -24,15 +22,14 @@ _pool_lock = asyncio.Lock()
 
 def _build_mssql_dsn() -> str:
     """Build ODBC connection string for SQL Server."""
-    drivers = [d for d in pyodbc.drivers() if "SQL Server" in d]
+    drivers = [driver for driver in pyodbc.drivers() if "SQL Server" in driver and "ODBC" in driver]
     if not drivers:
-        raise RuntimeError("No SQL Server ODBC drivers found")
-
-    driver = sorted(drivers)[-1]
+        raise RuntimeError("No SQL Server ODBC drivers found!")
+    DB_DRIVER = sorted(drivers)[-1]
     server = f"{DB_HOST}\\{DB_INSTANCE}"
 
     return (
-        f"Driver={driver};"
+        f"Driver={DB_DRIVER};"
         f"Server={server};"
         f"Database={DB_NAME};"
         f"UID={DB_USER};"
