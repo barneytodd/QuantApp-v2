@@ -1,21 +1,19 @@
-# app/db/connection.py
-
-from .async_pool import _pool
+import app.database.async_pool as async_pool
 
 
 async def get_connection():
     """
     Acquire a database connection from the pool.
     """
-    if _pool is None:
+    if async_pool._pool is None:
         raise RuntimeError("Database pool not initialized")
 
-    return _pool if not hasattr(_pool, "acquire") else await _pool.acquire()
+    return async_pool._pool if not hasattr(async_pool._pool, "acquire") else await async_pool._pool.acquire()
 
 
 async def release_connection(conn):
     """
     Release a database connection back to the pool.
     """
-    if _pool and hasattr(_pool, "release"):
-        await _pool.release(conn)
+    if async_pool._pool and hasattr(async_pool._pool, "release"):
+        await async_pool._pool.release(conn)
