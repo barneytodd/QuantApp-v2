@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from database.async_pool import init_db_pool, close_db_pool
+from app.database.async_pool import init_db_pool, close_db_pool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
