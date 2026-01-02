@@ -1,20 +1,24 @@
 import os
 import glob
 import asyncio
-from app.database.async_pool import init_db_pool, close_db_pool, _pool
-from app.database.connection import get_connection, release_connection
+from app.db import async_pool
+from app.db.async_pool import init_db_pool, close_db_pool, _pool
+from app.db.connection import get_connection, release_connection
 
 MIGRATIONS_DIR = "migrations"
 
-async def run_migrations():
+async def run_migrations(pool=None):
     # Initialize the pool
-    try:
-        await init_db_pool()
-        print("DB pool initialized")
-    except Exception as e:
-        print("Failed to initialize DB pool:", e)
-        return  # stop execution
+    if pool:
+        async_pool._pool = pool
+    else:   
+        try:
+            await init_db_pool()
+        except Exception as e:
+            print("Failed to initialize DB pool:", e)
+            return  # stop execution
 
+    print("DB pool initialized")
 
     conn = None
     try:
@@ -56,8 +60,11 @@ async def run_migrations():
 
     finally:
         # Release connection and close pool
-        await release_connection(conn)
-        await close_db_pool()
+        if conn:
+            await release_connection(conn)
+
+        if pool is None:
+            await close_db_pool()
 
 
 if __name__ == "__main__":
