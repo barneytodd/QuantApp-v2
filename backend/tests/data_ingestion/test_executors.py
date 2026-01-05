@@ -2,7 +2,7 @@ import asyncio
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 import time
-from app.data_ingestion.executors import run_in_yf_executor
+from app.data_ingestion.executors import get_yfinance_executor, run_in_yf_executor
 
 
 def mock_task(x):
@@ -64,3 +64,20 @@ def test_executor_propagates_exceptions():
     with ThreadPoolExecutor(max_workers=2) as executor:
         with pytest.raises(ValueError, match="fail"):
             list(executor.map(fail_task, [1, 2, 3, 4]))
+
+
+def test_get_yfinance_executor_singleton(monkeypatch):
+    """Ensure get_yfinance_executor returns a ThreadPoolExecutor singleton."""
+    
+    # Reset the module-level executor for test isolation
+    monkeypatch.setattr("app.data_ingestion.executors._YF_EXECUTOR", None)
+    
+    # First call should create an executor
+    executor1 = get_yfinance_executor()
+    assert isinstance(executor1, ThreadPoolExecutor)
+    assert executor1._max_workers == 4
+    assert executor1._thread_name_prefix.startswith("yfinance")
+    
+    # Second call should return the same instance
+    executor2 = get_yfinance_executor()
+    assert executor1 is executor2  # singleton verified
