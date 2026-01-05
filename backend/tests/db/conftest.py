@@ -1,7 +1,6 @@
 import pytest_asyncio
 import asyncio
-from app.db import async_pool
-from app.db.connection import get_connection, release_connection
+from app.db import async_pool, get_connection, release_connection
 
 # DB pool fixture (function-scoped to match pytest-asyncio event_loop)
 @pytest_asyncio.fixture
@@ -21,3 +20,11 @@ async def db_connection(test_db_pool):
         yield conn
     finally:
         await release_connection(conn)
+
+# Table cleanup fixture
+@pytest_asyncio.fixture
+async def clean_prices_table(db_connection):
+    async with db_connection.cursor() as cur:
+        await cur.execute("DELETE FROM dbo.prices;")
+        await db_connection.commit() 
+    yield
