@@ -1,5 +1,5 @@
 import asyncio
-from typing import list
+from typing import List
 from datetime import date
 
 from app.data_ingestion.fetchers.prices import fetch_prices
@@ -12,6 +12,7 @@ async def fetch_with_retries(
     end: date,
     interval: str = "1d",
     max_attempts: int = 3,
+    coverage_threshold: float = 0.95,
     backoff_seconds: float = 1.0
 ):
     """Fetch a single symbol with retry logic."""
@@ -21,7 +22,7 @@ async def fetch_with_retries(
         result = await fetch_prices(
             FetchRequest(symbol=symbol, start=start, end=end, interval=interval)
         )
-        info = retry_info(result)
+        info = retry_info(result, start, end, coverage_threshold)
         if info["retry_reason"] == RetryReason.NONE:
             return { "symbol": symbol, "result": result, "attempts": attempt, **info }
         else:
@@ -31,19 +32,20 @@ async def fetch_with_retries(
     return { "symbol": symbol, "result": result, "attempts": attempt, **info }
 
 async def fetch_symbols_parallel(
-    symbols: list[str],
+    symbols: List[str],
     start: date,
     end: date,
     interval: str = "1d",
     max_attempts: int = 3,
-    max_concurrent: int = 5
+    max_concurrent: int = 5,
+    coverage_threshold: float = 0.95
 ):
     """Fetch multiple symbols in parallel with retries."""
     semaphore = asyncio.Semaphore(max_concurrent)
 
     async def sem_fetch(symbol):
         async with semaphore:
-            return await fetch_with_retries(symbol, start, end, interval, max_attempts)
+            return await fetch_with_retries(symbol, start, end, interval, max_attempts, coverage_threshold)
 
     tasks = [sem_fetch(s) for s in symbols]
     results = await asyncio.gather(*tasks)

@@ -34,9 +34,9 @@ def should_retry(result, coverage_threshold=0.95) -> RetryReason:
     return RetryReason.NONE
 
 
-def retry_info(result, coverage_threshold=0.95):
+def retry_info(result, start, end, coverage_threshold=0.95):
     reason = should_retry(result, coverage_threshold)
-    gaps = detect_gaps(result.data) if result.data is not None else []
+    gaps = detect_gaps(result.data, start, end) if result.data is not None else []
     coverage = calculate_coverage(result.data, result.request.start, result.request.end) if result.data is not None else 0
     return {
         "retry_reason": reason,
