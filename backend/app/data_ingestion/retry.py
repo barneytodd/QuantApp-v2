@@ -1,5 +1,5 @@
 from enum import Enum
-from data_ingestion.validators import calculate_coverage, detect_gaps
+from app.data_ingestion.validators import calculate_coverage, detect_gaps
 
 
 class RetryReason(Enum):
