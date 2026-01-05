@@ -19,7 +19,7 @@ async def fetch_with_retries(
     while attempt < max_attempts:
         attempt += 1
         result = await fetch_prices(
-            FetchRequest(symbols=[symbol], start=start, end=end, interval=interval)
+            FetchRequest(symbol=symbol, start=start, end=end, interval=interval)
         )
         info = retry_info(result)
         if info["retry_reason"] == RetryReason.NONE:

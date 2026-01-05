@@ -7,7 +7,7 @@ from app.data_ingestion.executors import run_in_yf_executor
 
 def _download_sync(req: FetchRequest):
     """Synchronous yfinance download for a single symbol"""
-    symbol = req.symbols[0] 
+    symbol = req.symbol
     df = yf.download(
         tickers=symbol,
         start=req.start,

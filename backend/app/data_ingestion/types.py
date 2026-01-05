@@ -5,7 +5,7 @@ import pandas as pd
 
 @dataclass(slots=True)
 class FetchRequest:
-    symbols: Sequence[str]
+    symbol: str
     start: date
     end: date
     interval: str = "1d"
