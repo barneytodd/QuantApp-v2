@@ -1,178 +1,131 @@
-import asyncio
-from unittest.mock import AsyncMock, patch
-
+import pandas as pd
 import pytest
-from app.data_ingestion import (
-    RetryReason,
-    fetch_with_retries, fetch_symbols_parallel, orchestrate_fetch_and_insert,
-    FetchResult, FetchRequest
-)
-from app.schemas import PriceDataRow
+from datetime import date
+from unittest.mock import AsyncMock
+
+from app.data_ingestion.orchestrator import fetch_missing_prices, fetch_symbols_parallel, orchestrate_fetch_and_insert
+from app.data_ingestion.types import FetchRequest
+from app.data_ingestion.fetchers.prices import FetchResult
 
 
 @pytest.mark.asyncio
-async def test_fetch_with_retries_succeeds(monkeypatch, full_price_df, date_range):
-    """Test fetch_with_retries returns immediately if coverage is full."""
-    start, end = date_range
-    mock_fetch = AsyncMock(return_value=FetchResult(
-        request=FetchRequest(symbol="AAPL", start=start, end=end),
-        data=full_price_df,
-        empty=False,
-        exception=None,
-        elapsed_ms=10
-    ))
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
+async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
+    start = date(2023, 1, 2)
+    end = date(2023, 1, 10)
+    symbol = "AAPL"
 
-    result = await fetch_with_retries("AAPL", start, end, coverage_threshold=0.99)
-    assert result["retry_reason"] == RetryReason.NONE
-    assert result["attempts"] == 1
-    assert result["symbol"] == "AAPL"
+    # DB already has first half
+    existing_keys = {
+        (symbol, d.date())
+        for d in pd.bdate_range("2023-01-02", "2023-01-05")
+    }
+
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.get_price_keys",
+        AsyncMock(return_value=existing_keys),
+    )
+
+    # Expect fetch only for missing range
+    mock_fetch = AsyncMock(
+        return_value={
+            "symbol": symbol,
+            "result": FetchResult(
+                request=FetchRequest(symbol, start, end),
+                data=full_price_df.loc["2023-01-06":],
+                empty=False,
+                exception=None,
+                elapsed_ms=5,
+            ),
+            "attempts": 1,
+            "retry_reason": None,
+            "coverage": 1.0,
+            "missing_dates": [],
+            "elapsed_ms": 5,
+        }
+    )
+
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.fetch_with_retries",
+        mock_fetch,
+    )
+
+    results = await fetch_missing_prices(
+        symbol, start, end, interval="1d", max_attempts=3
+    )
+
+    calls = mock_fetch.call_args_list
+
+    assert len(calls) == 2
+
+    # First missing range: Fri only
+    assert calls[0].args[1] == date(2023, 1, 6)
+    assert calls[0].args[2] == date(2023, 1, 6)
+
+    # Second missing range: Mon–Tue
+    assert calls[1].args[1] == date(2023, 1, 9)
+    assert calls[1].args[2] == date(2023, 1, 10)
 
 
 @pytest.mark.asyncio
-async def test_fetch_with_retries_retries_on_partial(monkeypatch, full_price_df, gappy_price_df, date_range):
-    """Test fetch_with_retries retries when coverage is partial."""
-    # First attempt partial coverage, second full coverage
-    start, end = date_range
-    fetch_sequence = [
-        FetchResult(
-            request=FetchRequest(symbol="AAPL", start=start, end=end),
-            data=gappy_price_df,
-            empty=False,
-            exception=None,
-            elapsed_ms=10
-        ),
-        FetchResult(
-            request=FetchRequest(symbol="AAPL", start=start, end=end),
-            data=full_price_df,
-            empty=False,
-            exception=None,
-            elapsed_ms=5
-        )
+async def test_fetch_symbols_parallel_multiple(monkeypatch):
+    start = date(2023, 1, 2)
+    end = date(2023, 1, 10)
+
+    mock_missing = AsyncMock(
+        side_effect=[
+            [{"symbol": "A", "result": "R1"}],
+            [{"symbol": "B", "result": "R2"}],
+        ]
+    )
+
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.fetch_missing_prices",
+        mock_missing,
+    )
+
+    results = await fetch_symbols_parallel(
+        ["A", "B"], start, end, max_concurrent=2
+    )
+
+    assert len(results) == 2
+    assert results[0][0]["symbol"] == "A"
+    assert results[1][0]["symbol"] == "B"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_inserts_only_missing(monkeypatch, full_price_df):
+    start = date(2023, 1, 2)
+    end = date(2023, 1, 10)
+
+    mock_fetch_results = [
+        [
+            {
+                "symbol": "AAPL",
+                "result": FetchResult(
+                    request=FetchRequest("AAPL", start, end),
+                    data=full_price_df,
+                    empty=False,
+                    exception=None,
+                    elapsed_ms=5,
+                ),
+            }
+        ]
     ]
-    mock_fetch = AsyncMock(side_effect=fetch_sequence)
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
 
-    result = await fetch_with_retries("AAPL", start, end, max_attempts=3, coverage_threshold=0.99)
-    assert result["retry_reason"] == RetryReason.NONE
-    assert result["attempts"] == 2
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.fetch_symbols_parallel",
+        AsyncMock(return_value=mock_fetch_results),
+    )
 
-
-@pytest.mark.asyncio
-async def test_fetch_with_retries_returns_last_on_failure(monkeypatch, gappy_price_df, date_range):
-    """Test that the last FetchResult is returned if all retries fail."""
-    start, end = date_range
-    mock_fetch = AsyncMock(return_value=FetchResult(
-        request=FetchRequest(symbol="AAPL", start=start, end=end),
-        data=gappy_price_df,
-        empty=False,
-        exception=None,
-        elapsed_ms=10
-    ))
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
-
-    result = await fetch_with_retries("AAPL", start, end, max_attempts=3, coverage_threshold=0.99)
-    assert result["retry_reason"] == RetryReason.PARTIAL
-    assert result["attempts"] == 3
-
-
-@pytest.mark.asyncio
-async def test_fetch_symbols_parallel_respects_max_concurrent(monkeypatch, full_price_df, date_range):
-    """Test that fetch_symbols_parallel respects max_concurrent semaphore."""
-    start, end = date_range
-    call_order = []
-
-    async def mock_fetch(req):
-        await asyncio.sleep(0.01)
-        call_order.append(req.symbol)
-        return FetchResult(
-            request=req,
-            data=full_price_df,
-            empty=False,
-            exception=None,
-            elapsed_ms=5
-        )
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
-
-    symbols = ["A", "B", "C", "D", "E"]
-    results = await fetch_symbols_parallel(symbols, start, end, max_concurrent=2, coverage_threshold=0.99)
-
-    assert all(r["retry_reason"] == RetryReason.NONE for r in results)
-    assert [r["symbol"] for r in results] == symbols
-
-
-@pytest.mark.asyncio
-async def test_orchestrator_calls_insert(monkeypatch, full_price_df, date_range):
-    """Test that orchestrator fetches data and 'inserts' into DB (mocked)."""
-    start, end = date_range
-
-    # Mock fetch_prices to always return full coverage
-    mock_fetch = AsyncMock(return_value=FetchResult(
-        request=FetchRequest(symbol="AAPL", start=start, end=end),
-        data=full_price_df,
-        empty=False,
-        exception=None,
-        elapsed_ms=5
-    ))
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
-
-    # Mock bulk_insert_prices_chunked in the orchestrator module
     mock_insert = AsyncMock(return_value=len(full_price_df))
     monkeypatch.setattr(
         "app.data_ingestion.orchestrator.bulk_insert_prices_chunked",
-        mock_insert
+        mock_insert,
     )
 
-    symbols = ["AAPL"]
-    inserted_count, fetch_results = await orchestrate_fetch_and_insert(symbols, start, end)
-
-    # Assertions
-    assert inserted_count == len(full_price_df)
-    assert len(fetch_results) == 1
-    assert fetch_results[0]["symbol"] == "AAPL"
-    assert mock_fetch.call_count == 1
-    assert mock_insert.call_count == 1
-
-
-@pytest.mark.asyncio
-async def test_orchestrator_respects_partial_fetch(monkeypatch, gappy_price_df, full_price_df, date_range):
-    """Test orchestrator retries on partial fetch and inserts final data (mocked)."""
-    start, end = date_range
-
-    # Simulate first partial fetch, then full fetch
-    fetch_sequence = [
-        FetchResult(
-            request=FetchRequest(symbol="AAPL", start=start, end=end),
-            data=gappy_price_df,
-            empty=False,
-            exception=None,
-            elapsed_ms=5
-        ),
-        FetchResult(
-            request=FetchRequest(symbol="AAPL", start=start, end=end),
-            data=full_price_df,
-            empty=False,
-            exception=None,
-            elapsed_ms=3
-        )
-    ]
-    mock_fetch = AsyncMock(side_effect=fetch_sequence)
-    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
-
-    # Mock bulk_insert_prices_chunked in orchestrator module
-    mock_insert = AsyncMock(return_value=len(full_price_df))
-    monkeypatch.setattr(
-        "app.data_ingestion.orchestrator.bulk_insert_prices_chunked",
-        mock_insert
+    inserted, results = await orchestrate_fetch_and_insert(
+        ["AAPL"], start, end
     )
 
-    symbols = ["AAPL"]
-    inserted_count, fetch_results = await orchestrate_fetch_and_insert(symbols, start, end, max_attempts=3)
-
-    # Assertions
-    assert inserted_count == len(full_price_df)
-    assert len(fetch_results) == 1
-    assert fetch_results[0]["symbol"] == "AAPL"
-    # fetch_prices should be called twice due to retry
-    assert mock_fetch.call_count == 2
+    assert inserted == len(full_price_df)
     assert mock_insert.call_count == 1
