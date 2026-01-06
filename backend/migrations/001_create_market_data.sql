@@ -1,6 +1,6 @@
 CREATE TABLE dbo.prices (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,
+    symbol NVARCHAR(32) NOT NULL,
     date DATE NOT NULL,
 
     [open] FLOAT NOT NULL,
