@@ -1,5 +1,6 @@
-import pytest_asyncio
 import asyncio
+import pytest_asyncio
+import uuid
 from app.db import async_pool, get_connection, release_connection
 
 # DB pool fixture (function-scoped to match pytest-asyncio event_loop)
@@ -21,10 +22,19 @@ async def db_connection(test_db_pool):
     finally:
         await release_connection(conn)
 
+#Unique test symbol fixture
+@pytest_asyncio.fixture
+async def test_symbol_prefix():
+    return f"TEST_{uuid.uuid4().hex[:8]}"
+
 # Table cleanup fixture
 @pytest_asyncio.fixture
-async def clean_prices_table(db_connection):
+async def clean_test_prices(db_connection, test_symbol_prefix):
+    yield  
+    
     async with db_connection.cursor() as cur:
-        await cur.execute("DELETE FROM dbo.prices;")
-        await db_connection.commit() 
-    yield
+        await cur.execute(
+            "DELETE FROM dbo.prices WHERE symbol LIKE ?",
+            (f"{test_symbol_prefix}%",)
+        )
+        await db_connection.commit()
