@@ -2,9 +2,12 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.data_ingestion.retry import RetryReason
-from app.data_ingestion.orchestrator import fetch_with_retries, fetch_symbols_parallel
-from app.data_ingestion.types import FetchResult, FetchRequest
+from app.data_ingestion import (
+    RetryReason,
+    fetch_with_retries, fetch_symbols_parallel, orchestrate_fetch_and_insert,
+    FetchResult, FetchRequest
+)
+from app.schemas import PriceDataRow
 
 
 @pytest.mark.asyncio
@@ -96,3 +99,80 @@ async def test_fetch_symbols_parallel_respects_max_concurrent(monkeypatch, full_
 
     assert all(r["retry_reason"] == RetryReason.NONE for r in results)
     assert [r["symbol"] for r in results] == symbols
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_calls_insert(monkeypatch, full_price_df, date_range):
+    """Test that orchestrator fetches data and 'inserts' into DB (mocked)."""
+    start, end = date_range
+
+    # Mock fetch_prices to always return full coverage
+    mock_fetch = AsyncMock(return_value=FetchResult(
+        request=FetchRequest(symbol="AAPL", start=start, end=end),
+        data=full_price_df,
+        empty=False,
+        exception=None,
+        elapsed_ms=5
+    ))
+    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
+
+    # Mock bulk_insert_prices_chunked in the orchestrator module
+    mock_insert = AsyncMock(return_value=len(full_price_df))
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.bulk_insert_prices_chunked",
+        mock_insert
+    )
+
+    symbols = ["AAPL"]
+    inserted_count, fetch_results = await orchestrate_fetch_and_insert(symbols, start, end)
+
+    # Assertions
+    assert inserted_count == len(full_price_df)
+    assert len(fetch_results) == 1
+    assert fetch_results[0]["symbol"] == "AAPL"
+    assert mock_fetch.call_count == 1
+    assert mock_insert.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_respects_partial_fetch(monkeypatch, gappy_price_df, full_price_df, date_range):
+    """Test orchestrator retries on partial fetch and inserts final data (mocked)."""
+    start, end = date_range
+
+    # Simulate first partial fetch, then full fetch
+    fetch_sequence = [
+        FetchResult(
+            request=FetchRequest(symbol="AAPL", start=start, end=end),
+            data=gappy_price_df,
+            empty=False,
+            exception=None,
+            elapsed_ms=5
+        ),
+        FetchResult(
+            request=FetchRequest(symbol="AAPL", start=start, end=end),
+            data=full_price_df,
+            empty=False,
+            exception=None,
+            elapsed_ms=3
+        )
+    ]
+    mock_fetch = AsyncMock(side_effect=fetch_sequence)
+    monkeypatch.setattr("app.data_ingestion.orchestrator.fetch_prices", mock_fetch)
+
+    # Mock bulk_insert_prices_chunked in orchestrator module
+    mock_insert = AsyncMock(return_value=len(full_price_df))
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.bulk_insert_prices_chunked",
+        mock_insert
+    )
+
+    symbols = ["AAPL"]
+    inserted_count, fetch_results = await orchestrate_fetch_and_insert(symbols, start, end, max_attempts=3)
+
+    # Assertions
+    assert inserted_count == len(full_price_df)
+    assert len(fetch_results) == 1
+    assert fetch_results[0]["symbol"] == "AAPL"
+    # fetch_prices should be called twice due to retry
+    assert mock_fetch.call_count == 2
+    assert mock_insert.call_count == 1
