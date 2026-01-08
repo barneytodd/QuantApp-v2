@@ -1,7 +1,7 @@
 from typing import AsyncGenerator, List
 from datetime import date, timedelta
 from app.db.connection import get_connection, release_connection
-from app.schemas.prices import PriceDataRow
+from app.schemas.prices.price_row import PriceDataRow
 #from app.core.logging import get_logger
 
 #log = get_logger(__name__)

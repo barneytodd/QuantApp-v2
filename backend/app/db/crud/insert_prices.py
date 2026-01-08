@@ -1,6 +1,6 @@
 import asyncio
 from typing import Iterable, List, Optional
-from app.schemas.prices import PriceDataRow
+from app.schemas.prices.price_row import PriceDataRow
 from app.db.connection import get_connection, release_connection
 
 def chunked(iterable: List, size: int = 1000):
