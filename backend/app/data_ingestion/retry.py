@@ -1,12 +1,5 @@
-from enum import Enum
 from app.data_ingestion.validators import calculate_coverage, detect_gaps
-
-
-class RetryReason(Enum):
-    NONE = "none"
-    EMPTY = "empty_data"
-    PARTIAL = "partial_coverage"
-    EXCEPTION = "fetch_exception"
+from app.schemas import RetryReason
 
 
 def should_retry(result, coverage_threshold=0.95) -> RetryReason:
