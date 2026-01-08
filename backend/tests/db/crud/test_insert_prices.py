@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from app.schemas.prices import PriceDataRow
+from app.schemas.prices.price_row import PriceDataRow
 from app.db.crud.insert_prices import bulk_insert_prices_chunked
 
 @pytest.mark.asyncio
