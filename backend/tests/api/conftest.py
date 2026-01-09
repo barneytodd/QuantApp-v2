@@ -31,7 +31,7 @@ def override_dependencies(monkeypatch):
             "missing_dates": [],
             "elapsed_ms": 50
         }
-        return 10, [[row]]
+        return {"AAPL": 10}, [[row]]
 
     monkeypatch.setattr("app.api.routes.data.prices.orchestrate_fetch_and_insert", dummy_orchestrator)
     app.dependency_overrides["app.api.routes.data.prices.orchestrate_fetch_and_insert"] = dummy_orchestrator
