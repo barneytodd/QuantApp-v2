@@ -1,0 +1,12 @@
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+.main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #1e293b;
+  color: #e5e7eb;
+}
