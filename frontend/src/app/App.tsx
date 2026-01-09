@@ -1,5 +1,5 @@
-import { Routes } from "./routes";
+import { AppRoutes } from "./routes";
 
 export function App() {
-  return <Routes />;
+  return <AppRoutes />;
 }
