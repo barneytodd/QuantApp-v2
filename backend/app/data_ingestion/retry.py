@@ -16,12 +16,12 @@ def should_retry(result, coverage_threshold=0.95) -> RetryReason:
     if result.exception is not None:
         return RetryReason.EXCEPTION
     
-    if result.empty:
+    if result.empty and result.request.start != result.request.end:
         return RetryReason.EMPTY
     
     # Compute coverage if not empty
     coverage = calculate_coverage(result.data, result.request.start, result.request.end)
-    if coverage < coverage_threshold:
+    if coverage < coverage_threshold and result.request.start != result.request.end:
         return RetryReason.PARTIAL
     
     return RetryReason.NONE
