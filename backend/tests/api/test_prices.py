@@ -1,12 +1,13 @@
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from app.schemas import GetPricesPayload, PriceDataRow
 from app.main import app
 
 
 @pytest.mark.anyio
 async def test_get_prices_single():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.get("/market-data/ohlcv/AAPL?start=2023-01-01&end=2023-01-31")
     assert response.status_code == 200
     data = response.json()
@@ -17,7 +18,8 @@ async def test_get_prices_single():
 @pytest.mark.anyio
 async def test_get_prices_bulk():
     payload = {"symbols": ["AAPL", "MSFT"], "start": "2023-01-01", "end": "2023-01-31"}
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/market-data/ohlcv/query", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -40,7 +42,8 @@ async def test_ingest_prices():
         "coverage_threshold": 0.95,
         "dry_run": False
     }
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/market-data/ingest", json=payload)
     assert response.status_code == 200
     json_data = response.json()
@@ -64,7 +67,8 @@ async def test_ingest_prices_async():
         "coverage_threshold": 0.95,
         "dry_run": False
     }
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/market-data/ingest/async", json=payload)
     assert response.status_code == 202
     json_data = response.json()
