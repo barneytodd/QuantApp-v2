@@ -37,6 +37,64 @@ async def fetch_with_retries(
     return { "symbol": symbol, "result": result, "attempts": attempt, **info }
 
 
+async def fetch_range_resilient(
+    *,
+    symbol: str,
+    start: date,
+    end: date,
+    interval: str,
+    max_attempts: int,
+    coverage_threshold: float,
+    max_depth: int = 5,
+):
+    """
+    Fetch a date range. If Yahoo returns empty, recursively split the range
+    to recover valid subranges.
+    """
+    result = await fetch_with_retries(
+        symbol,
+        start,
+        end,
+        interval,
+        max_attempts,
+        coverage_threshold,
+    )
+
+    # Success OR we've reached the smallest possible range
+    if result["retry_reason"] != RetryReason.EMPTY or max_depth == 0:
+        return [result]
+
+    # Split business-day range
+    bdays = pd.bdate_range(start, end)
+    if len(bdays) <= 1:
+        # Truly missing Yahoo date
+        return [result]
+
+    mid = bdays[len(bdays) // 2].date()
+
+    left = await fetch_range_resilient(
+        symbol=symbol,
+        start=start,
+        end=mid,
+        interval=interval,
+        max_attempts=max_attempts,
+        coverage_threshold=coverage_threshold,
+        max_depth=max_depth - 1,
+    )
+
+    right = await fetch_range_resilient(
+        symbol=symbol,
+        start=(mid + pd.offsets.BDay(1)).date(),
+        end=end,
+        interval=interval,
+        max_attempts=max_attempts,
+        coverage_threshold=coverage_threshold,
+        max_depth=max_depth - 1,
+    )
+
+    return left + right
+
+
 async def fetch_missing_prices(symbol: str, start: date, end: date, interval: str, max_attempts: int, coverage_threshold: float = 0.95):
     """
     Fetch prices only for missing dates for a single symbol.
@@ -52,8 +110,16 @@ async def fetch_missing_prices(symbol: str, start: date, end: date, interval: st
 
     # Fetch each missing range
     for r_start, r_end in missing_ranges:
-        result = await fetch_with_retries(symbol, r_start, r_end, interval, max_attempts, coverage_threshold)
-        results.append(result)
+        sub_results = await fetch_range_resilient(
+            symbol=symbol,
+            start=r_start,
+            end=r_end,
+            interval=interval,
+            max_attempts=max_attempts,
+            coverage_threshold=coverage_threshold,
+        )
+
+        results.extend(sub_results)
 
     return results
 
@@ -87,6 +153,7 @@ async def orchestrate_fetch_and_insert(
     max_attempts: int = 3,
     max_concurrent: int = 5,
     coverage_threshold: float = 0.95,
+    dry_run: bool = False,
     chunk_size: int = 1000
 ):
     """
@@ -108,22 +175,39 @@ async def orchestrate_fetch_and_insert(
     for symbol_results in fetch_results:
         for r in symbol_results:
             symbol = r["symbol"]
+            existing_keys = await get_price_keys(symbol, start, end)
+            existing_set = set(existing_keys)
             fetch_result = r["result"]
 
             if fetch_result and not fetch_result.empty:
-                for dt, row in fetch_result.data.iterrows():
-                    rows_to_insert.append(
-                        PriceDataRow(
-                            symbol=symbol,
-                            date=dt,
-                            open=row["Open"],
-                            high=row["High"],
-                            low=row["Low"],
-                            close=row["Close"],
-                            volume=row["Volume"],
+                df = fetch_result.data
+
+                # If multi-index columns (symbol, OHLCV), stack it
+                if isinstance(df.columns, pd.MultiIndex):
+                    df = df.stack(level=0, future_stack=True).rename_axis(["date", "symbol"]).reset_index()
+                    # Now df has columns: date, symbol, Open, High, Low, Close, Volume
+
+                # Drop duplicate (symbol, date) rows
+                df = df.drop_duplicates(subset=["symbol", "date"], keep="last")
+
+                for _, row in df.iterrows():
+                    if (row["symbol"], row["date"]) not in existing_set:
+                        rows_to_insert.append(
+                            PriceDataRow(
+                                symbol=row["symbol"],
+                                date=row["date"],
+                                open=row["Open"],
+                                high=row["High"],
+                                low=row["Low"],
+                                close=row["Close"],
+                                volume=row["Volume"],
+                            )
                         )
-                    )
 
     # Insert all rows into the DB
-    inserted_count = await bulk_insert_prices_chunked(rows_to_insert, chunk_size=chunk_size)
+    if not dry_run:
+        inserted_count = await bulk_insert_prices_chunked(rows_to_insert, chunk_size=chunk_size)
+    else:
+        inserted_count = {symbol: 0 for symbol in symbols}
+
     return inserted_count, fetch_results
