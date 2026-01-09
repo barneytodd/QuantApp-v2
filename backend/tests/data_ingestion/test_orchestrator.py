@@ -17,7 +17,7 @@ async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
     # DB already has first half
     existing_keys = {
         (symbol, d.date())
-        for d in pd.bdate_range("2023-01-02", "2023-01-05")
+        for d in pd.bdate_range("2023-01-06", "2023-01-09")
     }
 
     monkeypatch.setattr(
@@ -31,7 +31,7 @@ async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
             "symbol": symbol,
             "result": FetchResult(
                 request=FetchRequest(symbol, start, end),
-                data=full_price_df.loc["2023-01-06":],
+                data=full_price_df,
                 empty=False,
                 exception=None,
                 elapsed_ms=5,
@@ -57,12 +57,12 @@ async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
 
     assert len(calls) == 2
 
-    # First missing range: Fri only
-    assert calls[0].args[1] == date(2023, 1, 6)
-    assert calls[0].args[2] == date(2023, 1, 6)
+    # First missing range: Mon-Thu
+    assert calls[0].args[1] == date(2023, 1, 2)
+    assert calls[0].args[2] == date(2023, 1, 5)
 
-    # Second missing range: Mon–Tue
-    assert calls[1].args[1] == date(2023, 1, 9)
+    # Second missing range: Tue only
+    assert calls[1].args[1] == date(2023, 1, 10)
     assert calls[1].args[2] == date(2023, 1, 10)
 
 
@@ -117,15 +117,20 @@ async def test_orchestrator_inserts_only_missing(monkeypatch, full_price_df):
         AsyncMock(return_value=mock_fetch_results),
     )
 
-    mock_insert = AsyncMock(return_value=len(full_price_df))
+    mock_insert = AsyncMock(return_value={"AAPL": len(full_price_df)})
     monkeypatch.setattr(
         "app.data_ingestion.orchestrator.bulk_insert_prices_chunked",
         mock_insert,
+    )
+
+    monkeypatch.setattr(
+        "app.data_ingestion.orchestrator.get_price_keys",
+        AsyncMock(return_value=[("AAPL", pd.Timestamp("2023-01-02"))]),
     )
 
     inserted, results = await orchestrate_fetch_and_insert(
         ["AAPL"], start, end
     )
 
-    assert inserted == len(full_price_df)
+    assert inserted["AAPL"] == len(full_price_df)
     assert mock_insert.call_count == 1

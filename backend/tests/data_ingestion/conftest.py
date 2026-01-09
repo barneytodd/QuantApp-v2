@@ -18,16 +18,17 @@ def full_price_df():
     """
     idx = pd.bdate_range("2023-01-02", "2023-01-10")
 
-    return pd.DataFrame(
-        {
-            "Open": 100.0,
-            "High": 101.0,
-            "Low": 99.0,
-            "Close": 100.5,
-            "Volume": 1000,
-        },
-        index=idx,
+    columns = pd.MultiIndex.from_product(
+        [["AAPL"], ["Open", "High", "Low", "Close", "Volume"]],
+        names=["Ticker", "OHLCV"]
     )
+
+    data = [
+        [100.0, 101.0, 99.0, 100.5, 1000] for _ in range(len(idx))
+    ]
+
+    df = pd.DataFrame(data, index=idx, columns=columns)
+    return df
 
 
 @pytest.fixture
