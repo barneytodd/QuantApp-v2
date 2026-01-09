@@ -21,7 +21,7 @@ async def test_bulk_insert_basic(clean_test_prices, test_symbol_prefix):
     ]
 
     inserted = await bulk_insert_prices_chunked(rows)
-    assert inserted == 5, "All 5 unique rows should be inserted"
+    assert inserted[test_symbol_prefix] == 5, "All 5 unique rows should be inserted"
 
 @pytest.mark.asyncio
 async def test_bulk_insert_duplicates(clean_test_prices, test_symbol_prefix):
@@ -44,7 +44,7 @@ async def test_bulk_insert_duplicates(clean_test_prices, test_symbol_prefix):
     await bulk_insert_prices_chunked(rows)
     # Second insert (duplicates)
     inserted = await bulk_insert_prices_chunked(rows)
-    assert inserted == 0, "Duplicate rows should be skipped"
+    assert inserted[test_symbol_prefix] == 0, "Duplicate rows should be skipped"
 
 @pytest.mark.asyncio
 async def test_bulk_insert_chunked(clean_test_prices, test_symbol_prefix):
