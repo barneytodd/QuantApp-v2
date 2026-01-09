@@ -36,6 +36,7 @@ async def get_prices_bulk(payload: GetPricesPayload):
 
 @router.post("/ingest", response_model=IngestPricesResponse)
 async def ingest_prices(req: IngestPricesRequest):
+
     inserted_count, fetch_results = await orchestrate_fetch_and_insert(
         symbols=req.symbols,
         start=req.start,
@@ -44,6 +45,7 @@ async def ingest_prices(req: IngestPricesRequest):
         max_attempts=req.max_attempts,
         max_concurrent=req.max_concurrent,
         coverage_threshold=req.coverage_threshold,
+        dry_run=req.dry_run
     )
 
     return adapt_orchestration_result(
@@ -53,7 +55,7 @@ async def ingest_prices(req: IngestPricesRequest):
         interval=req.interval,
         dry_run=req.dry_run,
         fetch_results=fetch_results,
-        total_rows_inserted=inserted_count,
+        rows_inserted=inserted_count,
     )
 
 
@@ -82,6 +84,7 @@ async def run_background_ingestion(req: IngestPricesRequest):
             max_attempts=req.max_attempts,
             max_concurrent=req.max_concurrent,
             coverage_threshold=req.coverage_threshold,
+            dry_run=req.dry_run
         )
 
         response = adapt_orchestration_result(
@@ -91,7 +94,7 @@ async def run_background_ingestion(req: IngestPricesRequest):
             interval=req.interval,
             dry_run=req.dry_run,
             fetch_results=fetch_results,
-            total_rows_inserted=inserted_count,
+            rows_inserted=inserted_count,
         )
 
         # Log a summary

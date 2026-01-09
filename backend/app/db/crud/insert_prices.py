@@ -1,4 +1,4 @@
-import asyncio
+from collections import defaultdict
 from typing import Iterable, List, Optional
 from app.schemas.prices.price_row import PriceDataRow
 from app.db.connection import get_connection, release_connection
@@ -31,6 +31,7 @@ async def bulk_insert_prices_chunked(
         return 0 if return_count else None
 
     total_inserted = 0
+    inserted_by_symbol = defaultdict(int)
     conn = await get_connection()
     try:
         async with conn.cursor() as cursor:
@@ -81,10 +82,11 @@ async def bulk_insert_prices_chunked(
                 # Update inserted_keys and total count
                 for r in batch_filtered:
                     inserted_keys.add((r.symbol, r.date.date()))
+                    inserted_by_symbol[r.symbol] += 1
                 if return_count:
                     total_inserted += len(batch_filtered)
 
     finally:
         await release_connection(conn)
 
-    return total_inserted if return_count else None
+    return inserted_by_symbol if return_count else None

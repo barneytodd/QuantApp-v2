@@ -25,7 +25,7 @@ def adapt_orchestration_result(
     interval: str,
     dry_run: bool,
     fetch_results: list[list[dict]],
-    total_rows_inserted: int,
+    rows_inserted: dict,
 ) -> IngestPricesResponse:
     per_symbol = defaultdict(list)
 
@@ -65,10 +65,6 @@ def adapt_orchestration_result(
             key=lambda rr: RETRY_SEVERITY[rr],
         )
 
-        success = retry_reason == RetryReason.NONE
-        if success:
-            succeeded += 1
-
         coverage_values = [r.get("coverage") for r in symbol_runs if r.get("coverage") is not None]
         coverage = min(coverage_values) if coverage_values else None
 
@@ -90,6 +86,10 @@ def adapt_orchestration_result(
             None,
         )
 
+        success = error == None
+        if success:
+            succeeded += 1
+
         results.append(
             IngestSymbolResult(
                 symbol=symbol,
@@ -99,7 +99,7 @@ def adapt_orchestration_result(
                 coverage=coverage,
                 missing_dates=missing_dates,
                 rows_fetched=rows_fetched,
-                rows_inserted=rows_fetched if success and not dry_run else 0,
+                rows_inserted=rows_inserted[symbol],
                 elapsed_ms=elapsed_ms,
                 error=error,
             )
