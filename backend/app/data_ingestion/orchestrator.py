@@ -4,6 +4,7 @@ from typing import List
 from datetime import date
 
 from .models import RetryReason
+from app.core.dates import trading_days
 from app.data_ingestion.fetchers.prices import fetch_prices
 from app.data_ingestion.retry import retry_info
 from app.data_ingestion.models import FetchRequest, PriceInsertRow
@@ -65,7 +66,7 @@ async def fetch_range_resilient(
         return [result]
 
     # Split business-day range
-    bdays = pd.bdate_range(start, end)
+    bdays = trading_days(start, end)
     if len(bdays) <= 1:
         # Truly missing Yahoo date
         return [result]

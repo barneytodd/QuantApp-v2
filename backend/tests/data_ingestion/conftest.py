@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 from datetime import date
 
+from app.core.dates import trading_days
 
 @pytest.fixture
 def date_range():
@@ -16,7 +17,7 @@ def full_price_df():
     """
     Perfect OHLCV dataframe with no gaps.
     """
-    idx = pd.bdate_range("2023-01-02", "2023-01-10")
+    idx = trading_days("2023-01-02", "2023-01-10")
 
     columns = pd.MultiIndex.from_product(
         [["AAPL"], ["Open", "High", "Low", "Close", "Volume"]],

@@ -3,6 +3,7 @@ import pytest
 from datetime import date
 from unittest.mock import AsyncMock
 
+from app.core.dates import trading_days
 from app.data_ingestion.orchestrator import fetch_missing_prices, fetch_symbols_parallel, orchestrate_fetch_and_insert
 from app.data_ingestion.models import FetchRequest, FetchResult
 
@@ -16,7 +17,7 @@ async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
     # DB already has first half
     existing_keys = {
         (symbol, d.date())
-        for d in pd.bdate_range("2023-01-06", "2023-01-09")
+        for d in trading_days("2023-01-06", "2023-01-09")
     }
 
     monkeypatch.setattr(
@@ -57,7 +58,7 @@ async def test_fetch_missing_prices_only_missing(monkeypatch, full_price_df):
     assert len(calls) == 2
 
     # First missing range: Mon-Thu
-    assert calls[0].args[1] == date(2023, 1, 2)
+    assert calls[0].args[1] == date(2023, 1, 3)
     assert calls[0].args[2] == date(2023, 1, 5)
 
     # Second missing range: Tue only

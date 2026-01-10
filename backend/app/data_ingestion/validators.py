@@ -1,9 +1,11 @@
 import pandas as pd
 from datetime import date
 
+from app.core.dates import trading_days
+
 def calculate_coverage(df: pd.DataFrame, start: date, end: date) -> float:
     """Return the fraction of expected business days covered by the DataFrame."""
-    expected_days = pd.bdate_range(start=start, end=end)
+    expected_days = trading_days(start=start, end=end)
     actual_days = pd.to_datetime(df.index).normalize().unique()
     return len(actual_days) / len(expected_days)
 
@@ -14,7 +16,7 @@ def detect_gaps(df: pd.DataFrame, start: date, end: date) -> list[date]:
     df_dates = [d.date() for d in df_dates]  
 
     # Expected business days
-    expected_days = pd.bdate_range(start, end).to_pydatetime()
+    expected_days = trading_days(start, end).to_pydatetime()
     expected_dates = [d.date() for d in expected_days]
 
     # Compute missing

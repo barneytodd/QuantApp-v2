@@ -1,5 +1,6 @@
 import pandas as pd
 
+from app.core.dates import trading_days
 from app.data_ingestion.validators import (
     calculate_coverage,
     detect_gaps,
@@ -37,7 +38,7 @@ def test_detect_gaps_empty_df_returns_all_dates(date_range):
     start, end = date_range
     df = pd.DataFrame()
     gaps = detect_gaps(df, start, end)
-    expected_days = pd.bdate_range(start, end).to_pydatetime()
+    expected_days = trading_days(start, end).to_pydatetime()
     expected_dates = [d.date() for d in expected_days]
     assert gaps == expected_dates
 

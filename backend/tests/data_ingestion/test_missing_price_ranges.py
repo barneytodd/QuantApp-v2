@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import date
+from app.core.dates import trading_days
 from app.data_ingestion.utils import get_missing_date_ranges
 
 
@@ -18,7 +19,7 @@ def test_missing_ranges_none_missing():
     start = date(2026, 1, 5)
     end = date(2026, 1, 9)
 
-    existing = pd.bdate_range(start, end)
+    existing = trading_days(start, end)
 
     ranges = get_missing_date_ranges(existing, start, end)
 
