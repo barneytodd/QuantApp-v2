@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
-from app.data_ingestion.retry import should_retry, retry_info, RetryReason
-from app.data_ingestion.types import FetchRequest, FetchResult
+from app.data_ingestion.models import FetchRequest, FetchResult, RetryReason
+from app.data_ingestion.retry import should_retry, retry_info
 
 def test_should_not_retry_full_coverage(full_price_df, date_range):
     """Full coverage should not trigger a retry."""

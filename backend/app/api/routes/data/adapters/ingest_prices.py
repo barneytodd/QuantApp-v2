@@ -2,10 +2,10 @@ from collections import defaultdict
 from datetime import date
 from typing import List
 
+from app.data_ingestion.models import RetryReason
 from app.schemas import (
     IngestPricesResponse,
     IngestSymbolResult,
-    RetryReason,
 )
 
 

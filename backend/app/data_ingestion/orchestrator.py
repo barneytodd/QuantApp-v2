@@ -3,11 +3,11 @@ import pandas as pd
 from typing import List
 from datetime import date
 
+from .models import RetryReason
 from app.data_ingestion.fetchers.prices import fetch_prices
-from app.data_ingestion.retry import retry_info, RetryReason
-from app.data_ingestion.types import FetchRequest
+from app.data_ingestion.retry import retry_info
+from app.data_ingestion.models import FetchRequest, PriceInsertRow
 from app.db.crud import bulk_insert_prices_chunked, get_price_keys
-from app.schemas import PriceDataRow
 from .utils import get_missing_date_ranges
 
 
@@ -170,7 +170,7 @@ async def orchestrate_fetch_and_insert(
         coverage_threshold
     )
 
-    rows_to_insert: list[PriceDataRow] = []
+    rows_to_insert: list[PriceInsertRow] = []
 
     for symbol_results in fetch_results:
         for r in symbol_results:
@@ -193,7 +193,7 @@ async def orchestrate_fetch_and_insert(
                 for _, row in df.iterrows():
                     if (row["symbol"], row["date"]) not in existing_set:
                         rows_to_insert.append(
-                            PriceDataRow(
+                            PriceInsertRow(
                                 symbol=row["symbol"],
                                 date=row["date"],
                                 open=row["Open"],

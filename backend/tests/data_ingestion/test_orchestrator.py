@@ -4,8 +4,7 @@ from datetime import date
 from unittest.mock import AsyncMock
 
 from app.data_ingestion.orchestrator import fetch_missing_prices, fetch_symbols_parallel, orchestrate_fetch_and_insert
-from app.data_ingestion.types import FetchRequest
-from app.data_ingestion.fetchers.prices import FetchResult
+from app.data_ingestion.models import FetchRequest, FetchResult
 
 
 @pytest.mark.asyncio

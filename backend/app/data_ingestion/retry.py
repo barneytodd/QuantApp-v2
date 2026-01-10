@@ -1,5 +1,5 @@
 from app.data_ingestion.validators import calculate_coverage, detect_gaps
-from app.schemas import RetryReason
+from .models import RetryReason
 
 
 def should_retry(result, coverage_threshold=0.95) -> RetryReason:

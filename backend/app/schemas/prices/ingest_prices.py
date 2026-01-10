@@ -1,14 +1,8 @@
 from datetime import date
-from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-
-class RetryReason(str, Enum):
-    NONE = "none"
-    EMPTY = "empty_data"
-    PARTIAL = "partial_coverage"
-    EXCEPTION = "fetch_exception"
+from app.data_ingestion.models import RetryReason
 
 
 class IngestPricesRequest(BaseModel):

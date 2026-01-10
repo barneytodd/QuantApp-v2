@@ -3,8 +3,8 @@ import pytest
 from datetime import date
 from unittest.mock import patch
 
-from app.data_ingestion.fetchers.prices import fetch_prices, _download_sync
-from app.data_ingestion.types import FetchRequest, FetchResult
+from app.data_ingestion.fetchers.prices import fetch_prices
+from app.data_ingestion.models import FetchRequest, FetchResult
 
 
 @pytest.mark.asyncio

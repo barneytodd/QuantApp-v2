@@ -1,8 +1,7 @@
 import time
 import yfinance as yf
-from datetime import date
 
-from app.data_ingestion.types import FetchRequest, FetchResult
+from app.data_ingestion.models import FetchRequest, FetchResult
 from app.data_ingestion.executors import run_in_yf_executor
 
 def _download_sync(req: FetchRequest):
