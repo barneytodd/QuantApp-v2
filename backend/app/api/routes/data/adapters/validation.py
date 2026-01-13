@@ -22,10 +22,15 @@ def adapt_validation_result(results: List[ValidationResult]) -> List[ValidationR
                 symbol=r.symbol,
                 start=r.start,
                 end=r.end,
+                status=r.status,
                 coverage=r.coverage,
                 first_date=r.first_date,
                 last_date=r.last_date,
-                issues=issues
+                issues=issues,
+                expected_days=5,
+                observed_days=3,
+                missing_dates=r.missing_dates,
+                elapsed_ms=r.elapsed_ms
             )
         )
     return response
