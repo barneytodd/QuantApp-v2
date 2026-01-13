@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.async_pool import init_db_pool, close_db_pool
-from app.api import prices_router
+from app.api import prices_router, validation_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +16,8 @@ app = FastAPI(title="QuantApp", lifespan=lifespan)
 
 # Include routers
 app.include_router(prices_router)
+app.include_router(validation_router)
+
 
 origins = [
     "http://localhost:5173",  # your Vite frontend
