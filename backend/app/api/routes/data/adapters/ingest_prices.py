@@ -46,7 +46,7 @@ def adapt_orchestration_result(
                     symbol=symbol,
                     success=False,
                     attempts=0,
-                    retry_reason=RetryReason.fetch_exception,
+                    retry_reason=RetryReason.EXCEPTION,
                     coverage=None,
                     missing_dates=[],
                     rows_fetched=0,
