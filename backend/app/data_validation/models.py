@@ -12,11 +12,6 @@ class ValidationStatus(str, Enum):
     FAIL = "fail"
 
 
-class ValidationSeverity(str, Enum):
-    WARNING = "warning"
-    ERROR = "error"
-
-
 @dataclass(slots=True)
 class ValidationIssue:
     """
@@ -28,9 +23,9 @@ class ValidationIssue:
     - frontend-safe
     """
     code: str                     # e.g. MISSING_DAYS, OUTLIER_RETURNS
-    severity: ValidationSeverity  # warning | error
-    message: str
-    details: dict[str, Any]
+    count: int  
+    affected_dates: list[date]
+    description: str
 
 
 @dataclass(slots=True)

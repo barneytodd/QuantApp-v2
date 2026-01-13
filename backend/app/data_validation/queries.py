@@ -18,7 +18,7 @@ GROUP BY symbol;
 
 # 2. Rows with missing OHLCV fields
 MISSING_OHLCV = """
-SELECT COUNT(*) AS invalid_rows
+SELECT [date] AS invalid_rows
 FROM prices
 WHERE symbol = ?
   AND [date] BETWEEN ? AND ?
@@ -33,7 +33,7 @@ WHERE symbol = ?
 
 # 3. Suspicious or invalid price rows
 SUSPICIOUS_PRICES = """
-SELECT COUNT(*) AS suspicious_rows
+SELECT [date] AS suspicious_rows
 FROM prices
 WHERE symbol = ?
   AND [date] BETWEEN ? AND ?
@@ -90,14 +90,14 @@ async def get_symbol_summary(symbol: str, start: str, end: str) -> dict:
         return {"first_date": None, "last_date": None, "observed_days": 0}
 
 
-async def count_missing_ohlcv(symbol: str, start: str, end: str) -> int:
+async def get_missing_ohlcv_dates(symbol: str, start: str, end: str) -> list[str]:
     async with get_connection() as conn:
-        return await fetch_one(conn, MISSING_OHLCV, (symbol, start, end))
+        return await fetch_all(conn, MISSING_OHLCV, (symbol, start, end))
 
 
-async def count_suspicious_prices(symbol: str, start: str, end: str) -> int:
+async def get_suspicious_price_dates(symbol: str, start: str, end: str) -> list[str]:
     async with get_connection() as conn:
-        return await fetch_one(conn, SUSPICIOUS_PRICES, (symbol, start, end))
+        return await fetch_all(conn, SUSPICIOUS_PRICES, (symbol, start, end))
 
 
 async def get_existing_dates(symbol: str, start: str, end: str) -> list:
