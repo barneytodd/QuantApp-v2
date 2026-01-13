@@ -2,7 +2,6 @@ from fastapi import APIRouter, BackgroundTasks, Query
 from datetime import date
 from typing import List
 
-from app.db.connection import get_connection
 from app.core.logging import get_logger
 from app.schemas import GetPricesPayload, PriceDataRow, IngestPricesResponse, IngestPricesRequest
 from app.db.crud import get_prices
